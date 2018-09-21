@@ -6,7 +6,7 @@ export const runUntil = curryN(2,
     let result = iterator.next();
     while (!result.done) {
       yieldedValues.push(result.value);
-      if (condition.match(result.value, yieldedValues.length)) {
+      if (condition(result.value, yieldedValues.length)) {
         break;
       }
 
@@ -23,6 +23,15 @@ export const runUntil = curryN(2,
 
 export const runUntilCompletion = runUntil(F);
 
+//TODO: add optional second parameter which is a function, so you can do more complicated logic.
+// eg: 
+//   when(put('whatever'), ({value, count, next, throw, return}) => {
+//     if (value === something) {
+//       next('something else')
+//     } else {
+//       throw('err');
+//     }
+//   })
 export const when = function (valueOrMatcher) {
   let matcher;
   if (typeof valueOrMatcher === 'function') {
@@ -57,3 +66,5 @@ export const when = function (valueOrMatcher) {
 
   return mock;
 }
+
+//TODO: add a whenever which will match as many times as it occurs
