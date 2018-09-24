@@ -12,9 +12,12 @@ export const runUntil = curryN(2,
 
       const match = matchers.find(m => m.match(result.value, yieldedValues));
       if (match) {
-        match.execute(iterator);
+        // TODO: handle if execute doesn't return an object. This should
+        //   only happen with custom code via .then, but still should 
+        //   support it.
+        result = match.execute(iterator);
       } else {
-        iterator.next();
+        result = iterator.next();
       }
     }
     return yieldedValues;
@@ -38,7 +41,7 @@ export const when = function (valueOrMatcher) {
     execute: (iterator) => {
       const action = actions.shift();
       if (action) {
-        action(iterator);
+        return action(iterator);
       }
     },
     then: function (callback) {
