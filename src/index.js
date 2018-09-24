@@ -1,18 +1,18 @@
 import { equals, curryN, F } from 'ramda';
 
 export const runUntil = curryN(2,
-  function(condition, iterator, mocks = []) {
+  function(condition, iterator, matchers = []) {
     const yieldedValues = [];
     let result = iterator.next();
     while (!result.done) {
       yieldedValues.push(result.value);
-      if (condition(result.value, yieldedValues.length)) {
+      if (condition(result.value, yieldedValues)) {
         break;
       }
 
-      const mock = mocks.find(m => m.match(result.value, yieldedValues.length));
-      if (mock) {
-        mock.action(iterator, yieldedValues.length);
+      const match = matchers.find(m => m.match(result.value, yieldedValues));
+      if (match) {
+        match.execute(iterator);
       } else {
         iterator.next();
       }
@@ -23,15 +23,6 @@ export const runUntil = curryN(2,
 
 export const runUntilCompletion = runUntil(F);
 
-//TODO: add optional second parameter which is a function, so you can do more complicated logic.
-// eg: 
-//   when(put('whatever'), ({value, count, next, throw, return}) => {
-//     if (value === something) {
-//       next('something else')
-//     } else {
-//       throw('err');
-//     }
-//   })
 export const when = function (valueOrMatcher) {
   let matcher;
   if (typeof valueOrMatcher === 'function') {
@@ -43,24 +34,25 @@ export const when = function (valueOrMatcher) {
   const actions = [];
 
   const mock = {
-    match: (val, count) => matcher(val, count) && actions.length > 0,
-    action: (iterator, count) => {
+    match: (val, allValues) => actions.length > 0 && matcher(val, allValues),
+    execute: (iterator) => {
       const action = actions.shift();
       if (action) {
-        action(iterator, count);
+        action(iterator);
       }
     },
-    next: function (mockValue) {
-      actions.push(iterator => iterator.next(mockValue));
+    then: function (callback) {
+      actions.push(callback);
       return this;
+    },
+    next: function (mockValue) {
+      return this.then(iterator => iterator.next(mockValue));
     },
     throw: function (mockValue) {
-      actions.push(iterator => iterator.throw && iterator.throw(mockValue));
-      return this;
+      return this.then(iterator => iterator.throw && iterator.throw(mockValue));
     },
     return: function (mockValue) {
-      actions.push(iterator => iterator.return && iterator.return(mockValue));
-      return this;
+      return this.then(iterator => iterator.return && iterator.return(mockValue));
     },
   }
 
