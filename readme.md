@@ -35,11 +35,11 @@ it('sample test', () => {
 
 This works, but it has a couple problems:
 
-1) These tests can be brittle, because they are highly dependant on the execution order. For example, if the saga swapped the order of its first too lines, the test would break, despite the code being perfectly fine.
+* These tests can be brittle, because they are highly dependant on the execution order. For example, if the saga swapped the order of its first too lines, the test would break, despite the code being perfectly fine.
 
 It's important that unit tests break, but they should break when something important is no longer working, nor merely when the code is touched. If tests were meant to break all the time we could do all our unit tests just as a checksum on the file, and we would train ourselves that a test failure means "time to update the checksum", not an indication that there's a problem.
 
-2) Manual iteration through the saga can be tedious, especially if nothing needs to be mocked. A test may end up with a string of `iterator.next()`s just to get to the stuff that's actually in need of testing.
+* Manual iteration through the saga can be tedious, especially if nothing needs to be mocked. A test may end up with a string of `iterator.next()`s just to get to the stuff that's actually in need of testing.
 
 redux-saga-test-helper seeks to address these problems. It lets you specify what mock data to feed into the iterator, without being concerned about the exact order of execution or the need to manually iterate. Then you can write tests around the results, again without being concerned about the exact order, unless that's important to a specific test case.
 
@@ -140,7 +140,7 @@ it('Error test', () => {
   ]
   const results = runToCompletion(sampleSaga(), mocks);
   expect(results).toContainEqual({
-    type: 'success',
+    type: 'error',
     payload: 'oh no!'
   })
 })
