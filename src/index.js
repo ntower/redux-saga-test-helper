@@ -1,7 +1,12 @@
-import { equals, curryN, F } from 'ramda';
+import { equals, curryN, F, head } from 'ramda';
 
 export const runUntil = curryN(2,
-  function(condition, iterator, matchers = []) {
+  function(condition, iteratorOrGenerator, matchers = []) {
+    let iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
+    if (!iterator || !iterator.next) {
+      throw new Error('Requires an iterator or generator to work');
+    }
+
     const yieldedValues = [];
     let result = iterator.next();
     while (!result.done) {
@@ -26,7 +31,7 @@ export const runUntil = curryN(2,
 
 export const runUntilCompletion = runUntil(F);
 
-export const when = function (valueOrMatcher) {
+const createMock = curryN(2, function(actionPicker, valueOrMatcher) {
   let matcher;
   if (typeof valueOrMatcher === 'function') {
     matcher = valueOrMatcher;
@@ -39,7 +44,7 @@ export const when = function (valueOrMatcher) {
   const mock = {
     match: (val, allValues) => actions.length > 0 && matcher(val, allValues),
     execute: (iterator) => {
-      const action = actions.shift();
+      const action = actionPicker(actions);
       if (action) {
         return action(iterator);
       }
@@ -49,17 +54,19 @@ export const when = function (valueOrMatcher) {
       return this;
     },
     next: function (mockValue) {
-      return this.then(iterator => iterator.next(mockValue));
+      return this.then(iterator => iterator && iterator.next && iterator.next(mockValue));
     },
     throw: function (mockValue) {
-      return this.then(iterator => iterator.throw && iterator.throw(mockValue));
+      return this.then(iterator => iterator && iterator.throw && iterator.throw(mockValue));
     },
     return: function (mockValue) {
-      return this.then(iterator => iterator.return && iterator.return(mockValue));
+      return this.then(iterator => iterator && iterator.return && iterator.return(mockValue));
     },
   }
 
   return mock;
-}
+});
 
-//TODO: add a whenever which will match as many times as it occurs
+export const when = createMock(actions => actions.shift())
+
+export const whenever = createMock(head);

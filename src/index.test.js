@@ -1,4 +1,123 @@
-import { when } from ".";
+import { when, whenever, runUntilCompletion } from ".";
+
+describe('runUntilCompletion', () => {
+  describe('0 or 1 mock', () => {
+    function* sampleSaga() {
+      try {
+        const one = yield 'one';
+        yield one + 'success';
+      } catch (ex) {
+        yield ex + 'err';
+      } finally {
+        yield 'finally';
+      }
+    }
+  
+    it('throws if passed a non iterator/generator (primitive)', () => {
+      try {
+        const results = runUntilCompletion(1);
+        expect(false).toEqual(true);
+      } catch (ex) {}
+    })
+  
+    it('throws if passed a non iterator/generator (non-iterator object)', () => {
+      try {
+        const results = runUntilCompletion({ then: jest.fn() });
+        expect(false).toEqual(true);
+      } catch (ex) {}
+    })
+  
+    it('throws if passed a non iterator/generator (normal function)', () => {
+      const fn = jest.fn();
+      try {
+        const results = runUntilCompletion(fn);
+        expect(false).toEqual(true);
+      } catch (ex) {
+        expect(fn).toHaveBeenCalled();
+      }
+    })
+  
+    it('runs to completion, no mocks', () => {
+      const results = runUntilCompletion(sampleSaga());
+      expect(results).toEqual(['one', 'undefinedsuccess', 'finally']);
+    })
+  
+    it('runs to completion, passed in generator instead of iterator', () => {
+      const results = runUntilCompletion(sampleSaga);
+      expect(results).toEqual(['one', 'undefinedsuccess', 'finally']);
+    })
+  
+    it('runs to completion, passed in mock next', () => {
+      const mocks = [when('one').next('fake')];
+      const results = runUntilCompletion(sampleSaga(), mocks);
+      expect(results).toEqual(['one', 'fakesuccess', 'finally']);
+    })
+  
+    it('runs to completion, passed in mock throw', () => {
+      const mocks = [when('one').throw('fake')];
+      const results = runUntilCompletion(sampleSaga(), mocks);
+      expect(results).toEqual(['one', 'fakeerr', 'finally']);
+    })
+  
+    it('runs to completion, passed in mock return', () => {
+      const mocks = [when('one').return()];
+      const results = runUntilCompletion(sampleSaga(), mocks);
+      expect(results).toEqual(['one', 'finally']);
+    })
+  
+    it('runs to completion, passed in mock then', () => {
+      const mocks = [when('one').then(iterator => iterator.next('fake'))];
+      const results = runUntilCompletion(sampleSaga(), mocks);
+      expect(results).toEqual(['one', 'fakesuccess', 'finally']);
+    })
+  })
+
+  describe('2+ mocks', () => {
+    it('does not care about order', () => {
+      function* sampleSaga() {
+        const one = yield 'getone';
+        const two = yield 'gettwo';
+        yield one + two;
+      }
+
+      const mocks = [
+        when('gettwo').next('two'),
+        when('getone').next('one')
+      ]
+
+      const results = runUntilCompletion(sampleSaga, mocks);
+      expect(results).toEqual(['getone', 'gettwo', 'onetwo']);
+    })
+
+    it('chained whens', () => {
+      function* sampleSaga() {
+        const one = yield 'get';
+        const two = yield 'get';
+        yield one + two;
+      }
+
+      const mocks = [
+        when('get').next('one').next('two')
+      ]
+      const results = runUntilCompletion(sampleSaga, mocks);
+      expect(results).toEqual(['get', 'get', 'onetwo']);
+    })
+
+    it('whenever', () => {
+      function* sampleSaga() {
+        const one = yield 'get';
+        const two = yield 'get';
+        yield one + two;
+      }
+
+      const mocks = [
+        whenever('get').next('one')
+      ]
+      const results = runUntilCompletion(sampleSaga, mocks);
+      expect(results).toEqual(['get', 'get', 'oneone']);
+    })
+  })
+})
 
 describe('when', () => {
   it('exists', () => {
@@ -32,10 +151,11 @@ describe('when', () => {
         const matchFxn = jest.fn().mockReturnValue(true);
         const matcher = when(matchFxn)[key]('result');
         const sample = {};
-        const match = matcher.match(sample, 1000);
+        const mockValuesSoFar = [];
+        const match = matcher.match(sample, mockValuesSoFar);
 
         expect(match).toEqual(true);
-        expect(matchFxn).toHaveBeenCalledWith(sample, 1000);
+        expect(matchFxn).toHaveBeenCalledWith(sample, mockValuesSoFar);
       })
       
       it('notices a mismatch (primitive)', () => {
@@ -56,10 +176,11 @@ describe('when', () => {
         const matchFxn = jest.fn().mockReturnValue(false);
         const matcher = when(matchFxn)[key]('result');
         const sample = {};
-        const match = matcher.match(sample, 1000);
+        const mockValuesSoFar = [];
+        const match = matcher.match(sample, mockValuesSoFar);
 
         expect(match).toEqual(false);
-        expect(matchFxn).toHaveBeenCalledWith(sample, 1000);
+        expect(matchFxn).toHaveBeenCalledWith(sample, mockValuesSoFar);
       })
 
       it('supports execute', () => {
