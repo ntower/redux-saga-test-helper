@@ -1,6 +1,6 @@
 {
   "name": "redux-saga-test-helper",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Tools for making redux-saga unit tests",
   "main": "dist/index.min.js",
   "scripts": {
