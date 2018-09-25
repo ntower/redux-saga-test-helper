@@ -1,4 +1,5 @@
-import { equals, curryN, F, head } from 'ramda';
+import equals from 'ramda/src/equals';
+import curryN from 'ramda/src/curryN';
 
 export const runUntil = curryN(2,
   function(condition, iteratorOrGenerator, matchers = []) {
@@ -29,7 +30,7 @@ export const runUntil = curryN(2,
   }
 )
 
-export const runUntilCompletion = runUntil(F);
+export const runUntilCompletion = runUntil(() => false);
 
 const createMock = curryN(2, function(actionPicker, valueOrMatcher) {
   let matcher;
@@ -69,4 +70,4 @@ const createMock = curryN(2, function(actionPicker, valueOrMatcher) {
 
 export const when = createMock(actions => actions.shift())
 
-export const whenever = createMock(head);
+export const whenever = createMock(actions => actions[0]);
