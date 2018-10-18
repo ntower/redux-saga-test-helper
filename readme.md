@@ -105,7 +105,7 @@ when('someOtherValue').then(iterator => {
 With these tools we can put together our unit tests. If there's any yield statements we need mock values for, we specify thosse mocks using `when`. Anything that doesn't need a mock (ie, where `undefined` works just fine), can be omitted. Then we pass the array of mocks into runUntilCompletion, and get back an array of everything it yielded. Then we write our test assertions on that array, usually not caring about the order.
 
 ```js
-import { when, runToCompletion } from 'redux-saga-test-helper';
+import { when, runUntilCompletion } from 'redux-saga-test-helper';
 
 function* sampleSaga() {
   try {
@@ -125,7 +125,7 @@ it('Happy path test', () => {
     when(select(getApiUrl)).next('api'),
     when(call(axios.get, 'base/api')).next(mockResult),
   ]
-  const results = runToCompletion(sampleSaga(), mocks);
+  const results = runUntilCompletion(sampleSaga(), mocks);
   expect(results).toContainEqual({
     type: 'success',
     payload: mockResult.data
@@ -138,7 +138,7 @@ it('Error test', () => {
     when(select(getApiUrl)).next('api'),
     when(call(axios.get, 'base/api')).throw('oh no!'),
   ]
-  const results = runToCompletion(sampleSaga(), mocks);
+  const results = runUntilCompletion(sampleSaga(), mocks);
   expect(results).toContainEqual({
     type: 'error',
     payload: 'oh no!'
@@ -215,5 +215,33 @@ test('actions are in the correct order', () => {
     result => R.equals(result, put({ type: 'loaded', payload: 'fakeResult' })));
   expect(loadingIndex).toBeGreaterThan(-1);
   expect(loadedIndex).toBeGreaterThan(loadingIndex);
+})
+```
+
+### Terminating early
+
+`runUntilCompletion` will keep stepping through the saga indefinitely. In most cases, this is desireable, but some sagas have infinite loops or a test may want to break early for some other reason. For this, you can use `runUntil` and provide a function to specify under what conditions to break. Your condition function will get passed the most recently yielded value, as well as an array of all the yielded values so far.
+
+```js
+function* infiniteSaga() {
+  while (true) {
+    yield 'hello'
+  }
+}
+
+test('should yield hello at least 3 times', () => {
+  const results = runUntil(
+    (latestValue, allValuesSoFar) => allValuesSoFar.length === 3,
+    infiniteSaga
+  );
+  expect(results.length).toEqual(3);
+  expect(results.every(val => val === 'hello')).toEqual(true);
+});
+
+test('same example, but demonstrating that runUntil is curried', () => {
+  const runUntilThreeValues = runUntil((_, values) => values.length === 3);
+  const results = runUntilThreeValues(infiniteSaga);
+  expect(results.length).toEqual(3);
+  expect(results.every(val => val === 'hello')).toEqual(true);
 })
 ```
