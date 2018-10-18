@@ -102,7 +102,7 @@ when('someOtherValue').then(iterator => {
 
 ### Putting them together
 
-With these tools we can put together our unit tests. If there's any yield statements we need mock values for, we specify thosse mocks using `.when`. Anything that doesn't need a mock (ie, where `undefined` works just fine), can be omitted. Then we pass the array of mocks into runUntilCompletion, and get back an array of everything it yielded. Then we write our test assertions on that array, usually not caring about the order.
+With these tools we can put together our unit tests. If there's any yield statements we need mock values for, we specify thosse mocks using `when`. Anything that doesn't need a mock (ie, where `undefined` works just fine), can be omitted. Then we pass the array of mocks into runUntilCompletion, and get back an array of everything it yielded. Then we write our test assertions on that array, usually not caring about the order.
 
 ```js
 import { when, runToCompletion } from 'redux-saga-test-helper';
@@ -150,7 +150,7 @@ it('Error test', () => {
 
 ### Matching multiple times
 
-Sometimes, a saga is expected to yield the same thing multiple times. If you need to feed in mock data to multiple of these there are a few options. First, you can chain multiple desired results on to a `.when`. They will be executed in the order they are written. For example, the following test simulates an api failure followed by a success:
+Sometimes, a saga is expected to yield the same thing multiple times. If you need to feed in mock data to multiple of these there are a few options. First, you can chain multiple desired results on to a `when`. They will be executed in the order they are written. For example, the following test simulates an api failure followed by a success:
 
 ```js
 function* sagaThatRetriesOnce() {
@@ -178,15 +178,15 @@ test('single failure', () => {
 })
 ```
 
-Another option is to use `.whenever` instead. This will repeat the requested value no matter how many times it is encountered:
+Another option is to use `whenever` instead. This will repeat the requested value no matter how many times it is encountered:
 
 ```js
 test('repeated failure', () => {
   const mocks = [
     whenever(call(axios.get, 'someUrl')).throw('uh oh');
-    const results = runUntilCompletion(sagaThatRetriesOnce, mocks);
-    expect(results).toContainEqual(put({ type: 'error' }))
   ]
+  const results = runUntilCompletion(sagaThatRetriesOnce, mocks);
+  expect(results).toContainEqual(put({ type: 'error' }))
 });
 ```
 
