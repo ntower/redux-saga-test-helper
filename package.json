@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest",
     "autotest": "jest --watch",
-    "prepublish": "rollup -c"
+    "prepublish": "rollup -c",
+    "lint": "eslint --ext .js,.ts src/"
   },
   "repository": {
     "type": "git",
@@ -23,29 +24,30 @@
   },
   "homepage": "https://github.com/ntower/redux-saga-test-helper#readme",
   "devDependencies": {
-    "@babel/cli": "^7.0.0",
-    "@babel/core": "^7.0.0",
-    "@babel/preset-env": "^7.0.0",
-    "@babel/runtime": "^7.0.0",
-    "babel-eslint": "^9.0.0",
-    "eslint": "^5.4.0",
-    "eslint-config-standard": "^12.0.0",
-    "eslint-plugin-import": "^2.14.0",
-    "eslint-plugin-jasmine": "^2.10.1",
-    "eslint-plugin-node": "^7.0.1",
-    "eslint-plugin-promise": "^4.0.0",
-    "eslint-plugin-standard": "^4.0.0",
+    "@babel/cli": "^7.6.4",
+    "@babel/core": "^7.6.4",
+    "@babel/preset-env": "^7.6.3",
+    "@babel/preset-typescript": "^7.6.0",
+    "@types/jest": "^24.0.18",
+    "@types/ramda": "^0.26.29",
+    "@typescript-eslint/eslint-plugin": "^2.3.3",
+    "@typescript-eslint/parser": "^2.3.3",
+    "babel-eslint": "^10.0.3",
+    "eslint": "^6.5.1",
+    "eslint-plugin-jest": "^22.17.0",
+    "jest": "^24.9.0",
     "redux": "^4.0.0",
-    "redux-saga": "^0.16.0",
+    "redux-saga": "^1.1.1",
     "rollup": "^0.66.2",
     "rollup-plugin-babel": "^4.0.1",
     "rollup-plugin-commonjs": "^9.1.8",
     "rollup-plugin-node-resolve": "^3.4.0",
-    "rollup-plugin-uglify": "^6.0.0"
+    "rollup-plugin-uglify": "^6.0.0",
+    "ts-jest": "^24.1.0",
+    "typescript": "^3.6.4"
   },
   "dependencies": {
     "babel-core": "^7.0.0-bridge.0",
-    "jest": "^23.6.0",
     "ramda": "^0.25.0"
   }
 }

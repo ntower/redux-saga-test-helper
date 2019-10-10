@@ -15,14 +15,14 @@ describe('runUntilCompletion', () => {
   
     it('throws if passed a non iterator/generator (primitive)', () => {
       try {
-        const results = runUntilCompletion(1);
+        runUntilCompletion(1);
         expect(false).toEqual(true);
       } catch (ex) {}
     })
   
     it('throws if passed a non iterator/generator (non-iterator object)', () => {
       try {
-        const results = runUntilCompletion({ then: jest.fn() });
+        runUntilCompletion({ then: jest.fn() });
         expect(false).toEqual(true);
       } catch (ex) {}
     })
@@ -30,7 +30,7 @@ describe('runUntilCompletion', () => {
     it('throws if passed a non iterator/generator (normal function)', () => {
       const fn = jest.fn();
       try {
-        const results = runUntilCompletion(fn);
+        runUntilCompletion(fn);
         expect(false).toEqual(true);
       } catch (ex) {
         expect(fn).toHaveBeenCalled();

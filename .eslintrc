@@ -1,9 +1,27 @@
 {
-  "parser": "babel-eslint",
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 10,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "impliedStrict": true
+    },
+    "project": "./tsconfig.json"
+  },
   "extends": [
-    "eslint:recommended"
+    "eslint:recommended",
+    "plugin:@typescript-eslint/eslint-recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-requiring-type-checking",
+    "plugin:jest/recommended"
   ],
-  "plugins": [""],
+  "plugins": ["@typescript-eslint", "jest"],
   "env": {
+  },
+  "rules": {
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "jest/valid-expect-in-promise": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-explicit-any": "off"
   }
 }

@@ -1,14 +1,25 @@
 import equals from 'ramda/src/equals';
 import curryN from 'ramda/src/curryN';
 
+type Responder = <T>(iterator: Iterator<T>) => IteratorResult<T> | undefined;
+
+interface Mock {
+  match: (value: any, allValues: any[]) => boolean;
+  execute: (iterator: Iterator<any>) => any;
+  next: (value?: any) => this;
+  throw: (value?: any) => this;
+  return: (value?: any) => this;
+  then: (callback: Responder) => this;
+}
+
 export const runUntil = curryN(2,
-  function(condition, iteratorOrGenerator, matchers = []) {
-    let iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
+  function(condition, iteratorOrGenerator, mocks: Mock[] = []) {
+    const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
     if (!iterator || !iterator.next) {
       throw new Error('Requires an iterator or generator to work');
     }
 
-    const yieldedValues = [];
+    const yieldedValues: any[] = [];
     let result = iterator.next();
     while (!result.done) {
       yieldedValues.push(result.value);
@@ -16,7 +27,7 @@ export const runUntil = curryN(2,
         break;
       }
 
-      const match = matchers.find(m => m.match(result.value, yieldedValues));
+      const match = mocks.find(m => m.match(result.value, yieldedValues));
       if (match) {
         // TODO: handle if execute doesn't return an object. This should
         //   only happen with custom code via .then, but still should 
@@ -32,26 +43,29 @@ export const runUntil = curryN(2,
 
 export const runUntilCompletion = runUntil(() => false);
 
-const createMock = curryN(2, function(actionPicker, valueOrMatcher) {
-  let matcher;
+type ActionPicker = (actions: Responder[]) => Responder;
+
+function createMock(actionPicker: ActionPicker, valueOrMatcher: any): Mock {
+  let matcher: (value: any, allValues: any) => boolean;
   if (typeof valueOrMatcher === 'function') {
     matcher = valueOrMatcher;
   } else {
     matcher = equals(valueOrMatcher)
   }
 
-  const actions = [];
+  const responders: Responder[] = [];
 
-  const mock = {
-    match: (val, allValues) => actions.length > 0 && matcher(val, allValues),
+  const mock: Mock = {
+    match: (val, allValues) => responders.length > 0 && matcher(val, allValues),
     execute: (iterator) => {
-      const action = actionPicker(actions);
+      const action = actionPicker(responders);
       if (action) {
         return action(iterator);
       }
+      return undefined;
     },
-    then: function (callback) {
-      actions.push(callback);
+    then: function (callback: Responder) {
+      responders.push(callback);
       return this;
     },
     next: function (mockValue) {
@@ -66,8 +80,8 @@ const createMock = curryN(2, function(actionPicker, valueOrMatcher) {
   }
 
   return mock;
-});
+}
 
-export const when = createMock(actions => actions.shift())
+export const when = (valueOrMatcher: any) => createMock((responders: Responder[]) => responders.shift()!, valueOrMatcher);
 
-export const whenever = createMock(actions => actions[0]);
+export const whenever = (valueOrMatcher: any) => createMock((responders: Responder[]) => responders[0], valueOrMatcher);
