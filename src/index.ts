@@ -3,8 +3,10 @@ import curryN from 'ramda/src/curryN';
 
 type Responder = <T>(iterator: Iterator<T>) => IteratorResult<T> | undefined;
 
+type Matcher = (value: any, allValues: any[]) => boolean;
+
 interface Mock {
-  match: (value: any, allValues: any[]) => boolean;
+  match: Matcher;
   execute: (iterator: Iterator<any>) => any;
   next: (value?: any) => this;
   throw: (value?: any) => this;
@@ -12,34 +14,40 @@ interface Mock {
   then: (callback: Responder) => this;
 }
 
-export const runUntil = curryN(2,
-  function(condition, iteratorOrGenerator, mocks: Mock[] = []) {
-    const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
-    if (!iterator || !iterator.next) {
-      throw new Error('Requires an iterator or generator to work');
-    }
+type BoundRunUntil = (iteratorOrGenerator?: Iterator<any> | GeneratorFunction, mocks?: Mock[]) => any[];
 
-    const yieldedValues: any[] = [];
-    let result = iterator.next();
-    while (!result.done) {
-      yieldedValues.push(result.value);
-      if (condition(result.value, yieldedValues)) {
-        break;
-      }
-
-      const match = mocks.find(m => m.match(result.value, yieldedValues));
-      if (match) {
-        // TODO: handle if execute doesn't return an object. This should
-        //   only happen with custom code via .then, but still should 
-        //   support it.
-        result = match.execute(iterator);
-      } else {
-        result = iterator.next();
-      }
-    }
-    return yieldedValues;
+export function runUntil(condition: Matcher): BoundRunUntil
+export function runUntil(condition: Matcher, iteratorOrGenerator: Iterator<any> | GeneratorFunction, mocks?: Mock[]): any[]
+export function runUntil(condition: Matcher, iteratorOrGenerator?: Iterator<any> | GeneratorFunction, mocks?: Mock[]): any[] | BoundRunUntil {
+  if (iteratorOrGenerator === undefined) {
+    return runUntil.bind(null, condition);
   }
-)
+  mocks = mocks || [];
+  const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
+  if (!iterator || !iterator.next) {
+    throw new Error('Requires an iterator or generator to work');
+  }
+
+  const yieldedValues: any[] = [];
+  let result = iterator.next();
+  while (!result.done) {
+    yieldedValues.push(result.value);
+    if (condition(result.value, yieldedValues)) {
+      break;
+    }
+
+    const match = mocks.find(m => m.match(result.value, yieldedValues));
+    if (match) {
+      // TODO: handle if execute doesn't return an object. This should
+      //   only happen with custom code via .then, but still should 
+      //   support it.
+      result = match.execute(iterator);
+    } else {
+      result = iterator.next();
+    }
+  }
+  return yieldedValues;
+}
 
 export const runUntilCompletion = runUntil(() => false);
 
