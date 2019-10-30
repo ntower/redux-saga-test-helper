@@ -1,21 +1,41 @@
 import equals from 'ramda/src/equals';
-import curryN from 'ramda/src/curryN';
 
-type Responder = <T>(iterator: Iterator<T>) => IteratorResult<T> | undefined;
+type Responder = <T>(iterator: Iterator<T>) => IteratorResult<T>;
 
-interface Mock {
-  match: (value: any, allValues: any[]) => boolean;
-  execute: (iterator: Iterator<any>) => any;
+type ConditionMatcher = (value: any, allValues: any) => boolean;
+
+export interface MinimalMock {
+  match: ConditionMatcher;
+  execute: (iterator: Iterator<any>) => IteratorResult<any>;
+}
+
+export interface Mock extends MinimalMock{
   next: (value?: any) => this;
   throw: (value?: any) => this;
   return: (value?: any) => this;
   then: (callback: Responder) => this;
 }
 
-export const runUntil = curryN(2,
-  function(condition, iteratorOrGenerator, mocks: Mock[] = []) {
+type BoundRunUntil = ( 
+  iteratorOrGenerator: Iterator<any> | GeneratorFunction, 
+  mocks?: MinimalMock[], 
+  debug?: boolean
+) => any[];
+
+function runUntil(breakCondition: ConditionMatcher): BoundRunUntil;
+function runUntil(
+  breakCondition: ConditionMatcher,
+  iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
+  mocks: MinimalMock[] = [],
+  debug = false
+): BoundRunUntil | any[] {
+  const bound: BoundRunUntil = (
+    iteratorOrGenerator: Iterator<any> | GeneratorFunction,
+    mocks: MinimalMock[] = [],
+    debug = false
+  ): any[] => {
     const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
-    if (!iterator || !iterator.next) {
+    if (!iterator || typeof iterator.next !== 'function') {
       throw new Error('Requires an iterator or generator to work');
     }
 
@@ -23,30 +43,46 @@ export const runUntil = curryN(2,
     let result = iterator.next();
     while (!result.done) {
       yieldedValues.push(result.value);
-      if (condition(result.value, yieldedValues)) {
+      if (breakCondition(result.value, yieldedValues)) {
         break;
       }
 
-      const match = mocks.find(m => m.match(result.value, yieldedValues));
-      if (match) {
-        // TODO: handle if execute doesn't return an object. This should
-        //   only happen with custom code via .then, but still should 
-        //   support it.
-        result = match.execute(iterator);
+      const matchingMock = mocks.find(m => m.match(result.value, yieldedValues));
+      if (matchingMock) {
+        result = matchingMock.execute(iterator);
+        if (!result) {
+          throw new Error('Got no iterator result. When implementing a custom .then, make sure to return the result.')
+        }
       } else {
         result = iterator.next();
       }
     }
     return yieldedValues;
   }
-)
+  if (typeof iteratorOrGenerator === 'undefined') {
+    return bound;
+  }
+  return bound(iteratorOrGenerator, mocks, debug);
+}
 
 export const runUntilCompletion = runUntil(() => false);
+
+const cutoff = 1000;
+
+export const run = runUntil((_, allValues) => {
+  if (allValues.length > cutoff) {
+    throw new Error(
+`Generator did not terminate after ${cutoff} yields. You may have an infinite loop.
+If you need to run longer, use runUntilCompletion to run forever or runUntil to specify custom logic.`
+    );
+  }
+  return true;
+})
 
 type ActionPicker = (actions: Responder[]) => Responder;
 
 function createMock(actionPicker: ActionPicker, valueOrMatcher: any): Mock {
-  let matcher: (value: any, allValues: any) => boolean;
+  let matcher: ConditionMatcher;
   if (typeof valueOrMatcher === 'function') {
     matcher = valueOrMatcher;
   } else {
@@ -58,24 +94,20 @@ function createMock(actionPicker: ActionPicker, valueOrMatcher: any): Mock {
   const mock: Mock = {
     match: (val, allValues) => responders.length > 0 && matcher(val, allValues),
     execute: (iterator) => {
-      const action = actionPicker(responders);
-      if (action) {
-        return action(iterator);
-      }
-      return undefined;
+      return actionPicker(responders)(iterator);
     },
     then: function (callback: Responder) {
       responders.push(callback);
       return this;
     },
     next: function (mockValue) {
-      return this.then(iterator => iterator && iterator.next && iterator.next(mockValue));
+      return this.then(iterator => iterator.next(mockValue));
     },
     throw: function (mockValue) {
-      return this.then(iterator => iterator && iterator.throw && iterator.throw(mockValue));
+      return this.then(iterator => iterator.throw!(mockValue));
     },
     return: function (mockValue) {
-      return this.then(iterator => iterator && iterator.return && iterator.return(mockValue));
+      return this.then(iterator => iterator.return!(mockValue));
     },
   }
 
