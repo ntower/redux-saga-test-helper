@@ -23,46 +23,46 @@ type BoundRunUntil = (
 ) => any[];
 
 function runUntil(breakCondition: ConditionMatcher): BoundRunUntil;
+function runUntil(  
+  breakCondition: ConditionMatcher,
+  iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
+  mocks?: MinimalMock[],
+  debug?: boolean): any[]
 function runUntil(
   breakCondition: ConditionMatcher,
   iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
   mocks: MinimalMock[] = [],
   debug = false
 ): BoundRunUntil | any[] {
-  const bound: BoundRunUntil = (
-    iteratorOrGenerator: Iterator<any> | GeneratorFunction,
-    mocks: MinimalMock[] = [],
-    debug = false
-  ): any[] => {
-    const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
-    if (!iterator || typeof iterator.next !== 'function') {
-      throw new Error('Requires an iterator or generator to work');
+  if (iteratorOrGenerator === undefined) {
+    return runUntil.bind(null, breakCondition);
+  }
+  
+  mocks = mocks || [];
+  const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
+  if (!iterator || typeof iterator.next !== 'function') {
+    throw new Error('Requires an iterator or generator to work');
+  }
+
+  const yieldedValues: any[] = [];
+  let result = iterator.next();
+  while (!result.done) {
+    yieldedValues.push(result.value);
+    if (breakCondition(result.value, yieldedValues)) {
+      break;
     }
 
-    const yieldedValues: any[] = [];
-    let result = iterator.next();
-    while (!result.done) {
-      yieldedValues.push(result.value);
-      if (breakCondition(result.value, yieldedValues)) {
-        break;
+    const matchingMock = mocks.find(m => m.match(result.value, yieldedValues));
+    if (matchingMock) {
+      result = matchingMock.execute(iterator);
+      if (!result) {
+        throw new Error('Got no iterator result. When implementing a custom .then, make sure to return the result.')
       }
-
-      const matchingMock = mocks.find(m => m.match(result.value, yieldedValues));
-      if (matchingMock) {
-        result = matchingMock.execute(iterator);
-        if (!result) {
-          throw new Error('Got no iterator result. When implementing a custom .then, make sure to return the result.')
-        }
-      } else {
-        result = iterator.next();
-      }
+    } else {
+      result = iterator.next();
     }
-    return yieldedValues;
   }
-  if (typeof iteratorOrGenerator === 'undefined') {
-    return bound;
-  }
-  return bound(iteratorOrGenerator, mocks, debug);
+  return yieldedValues;
 }
 
 export const runUntilCompletion = runUntil(() => false);
