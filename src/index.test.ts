@@ -1,6 +1,6 @@
-import { when, whenever, runUntilCompletion } from ".";
+import { when, whenever, run } from ".";
 
-describe('runUntilCompletion', () => {
+describe('run', () => {
   describe('0 or 1 mock', () => {
     function* sampleSaga() {
       try {
@@ -15,14 +15,14 @@ describe('runUntilCompletion', () => {
   
     it('throws if passed a non iterator/generator (primitive)', () => {
       try {
-        runUntilCompletion(1);
+        run(1 as any, [], { silent: true });
         expect(false).toEqual(true);
       } catch (ex) {}
     })
   
     it('throws if passed a non iterator/generator (non-iterator object)', () => {
       try {
-        runUntilCompletion({ then: jest.fn() });
+        run({ then: jest.fn() } as any, [], { silent: true });
         expect(false).toEqual(true);
       } catch (ex) {}
     })
@@ -30,7 +30,7 @@ describe('runUntilCompletion', () => {
     it('throws if passed a non iterator/generator (normal function)', () => {
       const fn = jest.fn();
       try {
-        runUntilCompletion(fn);
+        run(fn as any, [], { silent: true });
         expect(false).toEqual(true);
       } catch (ex) {
         expect(fn).toHaveBeenCalled();
@@ -38,36 +38,36 @@ describe('runUntilCompletion', () => {
     })
   
     it('runs to completion, no mocks', () => {
-      const results = runUntilCompletion(sampleSaga());
+      const results = run(sampleSaga());
       expect(results).toEqual(['one', 'undefinedsuccess', 'finally']);
     })
   
     it('runs to completion, passed in generator instead of iterator', () => {
-      const results = runUntilCompletion(sampleSaga);
+      const results = run(sampleSaga);
       expect(results).toEqual(['one', 'undefinedsuccess', 'finally']);
     })
   
     it('runs to completion, passed in mock next', () => {
       const mocks = [when('one').next('fake')];
-      const results = runUntilCompletion(sampleSaga(), mocks);
+      const results = run(sampleSaga(), mocks);
       expect(results).toEqual(['one', 'fakesuccess', 'finally']);
     })
   
     it('runs to completion, passed in mock throw', () => {
       const mocks = [when('one').throw('fake')];
-      const results = runUntilCompletion(sampleSaga(), mocks);
+      const results = run(sampleSaga(), mocks);
       expect(results).toEqual(['one', 'fakeerr', 'finally']);
     })
   
     it('runs to completion, passed in mock return', () => {
       const mocks = [when('one').return()];
-      const results = runUntilCompletion(sampleSaga(), mocks);
+      const results = run(sampleSaga(), mocks);
       expect(results).toEqual(['one', 'finally']);
     })
   
     it('runs to completion, passed in mock respond', () => {
       const mocks = [when('one').respond(iterator => iterator.next('fake'))];
-      const results = runUntilCompletion(sampleSaga(), mocks);
+      const results = run(sampleSaga(), mocks);
       expect(results).toEqual(['one', 'fakesuccess', 'finally']);
     })
   })
@@ -85,7 +85,7 @@ describe('runUntilCompletion', () => {
         when('getone').next('one')
       ]
 
-      const results = runUntilCompletion(sampleSaga, mocks);
+      const results = run(sampleSaga, mocks);
       expect(results).toEqual(['getone', 'gettwo', 'onetwo']);
     })
 
@@ -99,7 +99,7 @@ describe('runUntilCompletion', () => {
       const mocks = [
         when('get').next('one').next('two')
       ]
-      const results = runUntilCompletion(sampleSaga, mocks);
+      const results = run(sampleSaga, mocks);
       expect(results).toEqual(['get', 'get', 'onetwo']);
     })
 
@@ -113,10 +113,32 @@ describe('runUntilCompletion', () => {
       const mocks = [
         whenever('get').next('one')
       ]
-      const results = runUntilCompletion(sampleSaga, mocks);
+      const results = run(sampleSaga, mocks);
       expect(results).toEqual(['get', 'get', 'oneone']);
     })
   })
+
+  test('throws after 1000 yields', () => {
+    function* infiniteSaga (){
+      while(true) {
+        yield 'hi';
+      }
+    }
+
+    let count = 0;
+    try {
+      const mocks = [
+        whenever(() => {
+          count++;
+          return undefined;
+        }).next(undefined)
+      ];
+      run(infiniteSaga, mocks, { silent: true });
+      expect(false).toEqual(true);
+    } catch {
+      expect(count).toEqual(1000);
+    }
+  });
 })
 
 describe('when', () => {
@@ -124,19 +146,19 @@ describe('when', () => {
     expect(when).toBeDefined();
   });
 
-  const createTests = (key) => {
+  const createTests = (key: 'next' | 'throw' | 'return') => {
     describe(`when.${key}`, () => {
       it('notices a match (primitive)', () => {
         const matcher = when(3)[key]('result');
 
-        expect(matcher.match(3)).toEqual(true);
+        expect(matcher._match(3, [])).toEqual(true);
       })
 
       it('notices a match (object reference)', () => {
         const input = { hello: 'world' };
         const matcher = when(input)[key]('result');
 
-        expect(matcher.match(input)).toEqual(true);
+        expect(matcher._match(input, [])).toEqual(true);
       })
 
       it('notices a match (object shape)', () => {
@@ -144,15 +166,15 @@ describe('when', () => {
         const similar = { hello: 'world' };
         const matcher = when(input)[key]('result');
 
-        expect(matcher.match(similar)).toEqual(true);
+        expect(matcher._match(similar, [])).toEqual(true);
       })
 
       it('notices a match (custom matcher)', () => {
         const matchFxn = jest.fn().mockReturnValue(true);
         const matcher = when(matchFxn)[key]('result');
         const sample = {};
-        const mockValuesSoFar = [];
-        const match = matcher.match(sample, mockValuesSoFar);
+        const mockValuesSoFar: any[] = [];
+        const match = matcher._match(sample, mockValuesSoFar);
 
         expect(match).toEqual(true);
         expect(matchFxn).toHaveBeenCalledWith(sample, mockValuesSoFar);
@@ -161,7 +183,7 @@ describe('when', () => {
       it('notices a mismatch (primitive)', () => {
         const matcher = when(3)[key]('result');
 
-        expect(matcher.match(4)).toEqual(false);
+        expect(matcher._match(4, [])).toEqual(false);
       })
 
       it('notices a mismatch (object shape)', () => {
@@ -169,15 +191,15 @@ describe('when', () => {
         const notSimilar = { greetings: 'universe' };
         const matcher = when(input)[key]('result');
 
-        expect(matcher.match(notSimilar)).toEqual(false);
+        expect(matcher._match(notSimilar, [])).toEqual(false);
       })
 
       it('notices a mismatch (custom matcher)', () => {
         const matchFxn = jest.fn().mockReturnValue(false);
         const matcher = when(matchFxn)[key]('result');
         const sample = {};
-        const mockValuesSoFar = [];
-        const match = matcher.match(sample, mockValuesSoFar);
+        const mockValuesSoFar: any[] = [];
+        const match = matcher._match(sample, mockValuesSoFar);
 
         expect(match).toEqual(false);
         expect(matchFxn).toHaveBeenCalledWith(sample, mockValuesSoFar);
@@ -185,17 +207,26 @@ describe('when', () => {
 
       it('supports execute', () => {
         const matcher = when(1)[key]('result');
-        const mockIterator = {[key]: jest.fn()};
-        matcher.execute(mockIterator);
+        const mockIterator = {
+          next: jest.fn().mockReturnValue('iteratorResult'),
+          throw: jest.fn().mockReturnValue('iteratorResult'),
+          return: jest.fn().mockReturnValue('iteratorResult'),
+        };
 
+        const output = matcher._execute(mockIterator);
         expect(mockIterator[key]).toHaveBeenCalledWith('result');
+        expect(output).toEqual('iteratorResult');
       })
 
       it('notices a match only the first time', () => {
         const matcher = when(1)[key]('result');
-        matcher.execute({ [key]: jest.fn() });
+        matcher._execute({ 
+          next: jest.fn(),
+          throw: jest.fn(),
+          return: jest.fn(),
+        });
         
-        expect(matcher.match(1)).toEqual(false);
+        expect(matcher._match(1, [])).toEqual(false);
       })
     });
   }
@@ -204,7 +235,7 @@ describe('when', () => {
   createTests('throw');
   createTests('return');
 
-  describe('when.then', () => {
+  describe('when.respond', () => {
     it('should execute with the iterator', () => {
       const mockIterator = {
         next: jest.fn(),
@@ -212,9 +243,9 @@ describe('when', () => {
         throw: jest.fn()
       };
       const callback = jest.fn();
-      const matcher = when(1).then(callback);
+      const matcher = when(1).respond(callback);
       
-      matcher.execute(mockIterator);
+      matcher._execute(mockIterator);
       expect(callback).toHaveBeenCalledWith(mockIterator);
     })
   })

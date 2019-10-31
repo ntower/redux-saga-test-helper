@@ -31,8 +31,10 @@ interface RunOptions {
   silent?: boolean;
 }
 
+type IteratorOrGenerator = Iterator<any> | (() => Iterator<any>)
+
 type BoundRunUntil = ( 
-  iteratorOrGenerator: Iterator<any> | GeneratorFunction, 
+  iteratorOrGenerator: IteratorOrGenerator, 
   mocks?: Mock[], 
   options?: RunOptions
 ) => any[];
@@ -40,12 +42,12 @@ type BoundRunUntil = (
 export function runUntil(breakCondition: ConditionMatcher): BoundRunUntil;
 export function runUntil(  
   breakCondition: ConditionMatcher,
-  iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
+  iteratorOrGenerator?: IteratorOrGenerator,
   mocks?: Mock[],
   options?: RunOptions): any[]
 export function runUntil(
   breakCondition: ConditionMatcher,
-  iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
+  iteratorOrGenerator?: IteratorOrGenerator,
   mocks: Mock[] = [],
   options = {} as Partial<RunOptions>
 ): BoundRunUntil | any[] {
