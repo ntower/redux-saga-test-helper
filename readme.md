@@ -37,7 +37,7 @@ This works, but it has a couple problems:
 
 * These tests can be **brittle**, because they are highly dependant on the execution order. For example, if the saga swapped the order of its first too lines, the test would break, despite the code being perfectly fine.
 
-It's important that unit tests break, but they should break when something important is no longer working, nor merely when the code is touched. If tests were meant to break all the time we could do all our unit tests just as a checksum on the file, and the consequence of this would be to train ourselves that a test failure means "time to update the checksum", not an indication that there's a problem.
+It's important that unit tests break, but they should break when something important is no longer working, not merely when the code is touched. If tests were meant to break all the time we could do all our unit tests just as a checksum on the file, and the consequence of this would be to train ourselves that a test failure means "time to update the checksum", not an indication that there's a problem.
 
 * Manual iteration through the saga can be **tedious**, especially if nothing needs to be mocked. A test may end up with a string of `iterator.next()`s just to get to the stuff that's actually in need of testing.
 
