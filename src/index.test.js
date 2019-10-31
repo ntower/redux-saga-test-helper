@@ -65,8 +65,8 @@ describe('runUntilCompletion', () => {
       expect(results).toEqual(['one', 'finally']);
     })
   
-    it('runs to completion, passed in mock then', () => {
-      const mocks = [when('one').then(iterator => iterator.next('fake'))];
+    it('runs to completion, passed in mock respond', () => {
+      const mocks = [when('one').respond(iterator => iterator.next('fake'))];
       const results = runUntilCompletion(sampleSaga(), mocks);
       expect(results).toEqual(['one', 'fakesuccess', 'finally']);
     })

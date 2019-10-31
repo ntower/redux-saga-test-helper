@@ -45,10 +45,10 @@ redux-saga-test-helper seeks to address these problems. It lets you specify what
 
 ## Usage
 
-The main utility function is `runUntilCompletion`. Given an iterator, it will repeatedly call next on it until it has finished running, and create an array of everything that was yielded:
+The main utility function is `run`. Given an iterator, it will repeatedly call next on it until it has finished running, and create an array of everything that was yielded:
 
 ```js
-import { runUntilCompletion } from 'redux-saga-test-helper';
+import { run } from 'redux-saga-test-helper';
 
 function* sampleSaga() {
   yield 'hello';
@@ -56,7 +56,7 @@ function* sampleSaga() {
 }
 
 it('should yield hello and world', () => {
-  const results = runUntilCompletion(sampleSaga());
+  const results = run(sampleSaga());
   expect(results[0]).toEqual('hello');
   expect(results[1]).toEqual('world');
 }
@@ -77,35 +77,35 @@ when(put({type: 'someAction'}));
 when((value, allValuesSoFar) => value === 'hello' && allValuesSoFar.length === 12345);
 ```
 
-After this you specify what mock value should be inserted into the saga. Four methods are available for this: next, throw, return, and then. 
+After this you specify what mock value should be inserted into the saga. Four methods are available for this: next, throw, return, and respond. 
 
 * .next is what you'll use most commonly, and will pass a specified value into the saga.
 * .throw will throw an exception in the saga, and can be used to test catch blocks
 * .return will cause the saga to finish. This will put the saga into a finally block and can be used to test saga cancellation.
-* .then can be used to write custom logic
+* .respond can be used to write custom logic
 
 ```js
 when(select(getBaseUrl)).next('fakeUrl');
 when(call(axios.get, 'fakeUrl')).throw('an error occurred')
 when('someValue').return();
-when('someOtherValue').then(iterator => {
+when('someOtherValue').respond(iterator => {
   const rand = Math.random();
   if (rand > 0.5) {
-    iterator.next('your lucky day')
+    return iterator.next('your lucky day');
   } else if (rand > 0.2) {
-    iterator.throw('too bad')
+    return iterator.throw('too bad');
   } else {
-    iterator.return()
+    return iterator.return();
   }
 })
 ```
 
 ### Putting them together
 
-With these tools we can put together our unit tests. If there's any yield statements we need mock values for, we specify thosse mocks using `when`. Anything that doesn't need a mock (ie, where `undefined` works just fine), can be omitted. Then we pass the array of mocks into runUntilCompletion, and get back an array of everything it yielded. Then we write our test assertions on that array, usually not caring about the order.
+With these tools we can put together our unit tests. If there's any yield statements we need mock values for, we specify thosse mocks using `when`. Anything that doesn't need a mock (ie, where `undefined` works just fine), can be omitted. Then we pass the array of mocks into run, and get back an array of everything it yielded. Then we write our test assertions on that array, usually not caring about the order.
 
 ```js
-import { when, runUntilCompletion } from 'redux-saga-test-helper';
+import { when, run } from 'redux-saga-test-helper';
 
 function* sampleSaga() {
   try {
@@ -119,31 +119,31 @@ function* sampleSaga() {
 }
 
 it('Happy path test', () => {
-  const mockResult = { data: 'hi' }
+  const mockResult = { data: 'hi' };
   const mocks = [
     when(select(getBaseUrl)).next('base'),
     when(select(getApiUrl)).next('api'),
-    when(call(axios.get, 'base/api')).next(mockResult),
-  ]
-  const results = runUntilCompletion(sampleSaga(), mocks);
+    when(call(axios.get, 'base/api')).next(mockResult)
+  ];
+  const results = run(sampleSaga(), mocks);
   expect(results).toContainEqual({
     type: 'success',
     payload: mockResult.data
-  })
-})
+  });
+});
 
 it('Error test', () => {
   const mocks = [
     when(select(getBaseUrl)).next('base'),
     when(select(getApiUrl)).next('api'),
-    when(call(axios.get, 'base/api')).throw('oh no!'),
-  ]
-  const results = runUntilCompletion(sampleSaga(), mocks);
+    when(call(axios.get, 'base/api')).throw('oh no!')
+  ];
+  const results = run(sampleSaga(), mocks);
   expect(results).toContainEqual({
     type: 'error',
     payload: 'oh no!'
-  })
-})
+  });
+});
 ```
 
 ## Other examples
@@ -158,12 +158,12 @@ function* sagaThatRetriesOnce() {
   while (retryCount < 2) {
     try {
       yield call(axios.get, 'someUrl');
-      yield put({ type: 'success' })
+      yield put({ type: 'success' });
     } catch (ex) {
       retryCount++;
     }
   }
-  yield put({ type: 'error' })
+  yield put({ type: 'error' });
 }
 
 test('single failure', () => {
@@ -171,11 +171,11 @@ test('single failure', () => {
     when(call(axios.get, 'someUrl'))
       .throw('uh oh')
       .next('yay!')
-  ]
-  const results = runUntilCompletion(sagaThatRetriesOnce, mocks);
+  ];
+  const results = run(sagaThatRetriesOnce, mocks);
   expect(results).toContainEqual(put({ type: 'success' }));
   expect(results).not.toContainEqual(put({ type: 'error' }));
-})
+});
 ```
 
 Another option is to use `whenever` instead. This will repeat the requested value no matter how many times it is encountered:
@@ -183,10 +183,10 @@ Another option is to use `whenever` instead. This will repeat the requested valu
 ```js
 test('repeated failure', () => {
   const mocks = [
-    whenever(call(axios.get, 'someUrl')).throw('uh oh');
-  ]
-  const results = runUntilCompletion(sagaThatRetriesOnce, mocks);
-  expect(results).toContainEqual(put({ type: 'error' }))
+    whenever(call(axios.get, 'someUrl')).throw('uh oh')
+  ];
+  const results = run(sagaThatRetriesOnce, mocks);
+  expect(results).toContainEqual(put({ type: 'error' }));
 });
 ```
 
@@ -200,14 +200,14 @@ For example, suppose we want to assert that a load**ing** action is dispatched b
 function* sampleSaga() {
   yield put({ type: 'loading' });
   const result = yield call(axios.get, 'someUrl');
-  yield put({ type: 'loaded', payload: result })
+  yield put({ type: 'loaded', payload: result });
 }
 
 test('actions are in the correct order', () => {
   const mocks = [
     when(call(axios.get, 'someUrl')).next('fakeResult');
-  ]
-  const results = runUntilCompletion(sampleSaga, mocks);
+  ];
+  const results = run(sampleSaga, mocks);
   // R.equals is from Ramda.js. Feel free to use any other comparison utility
   const loadingIndex = results.findIndex(
     result => R.equals(result, put({ type: 'loading' })));
@@ -218,14 +218,14 @@ test('actions are in the correct order', () => {
 })
 ```
 
-### Terminating early
+### Terminating earlier (or later)
 
-`runUntilCompletion` will keep stepping through the saga indefinitely. In most cases, this is desireable, but some sagas have infinite loops or a test may want to break early for some other reason. For this, you can use `runUntil` and provide a function to specify under what conditions to break. Your condition function will get passed the most recently yielded value, as well as an array of all the yielded values so far.
+`run` will keep stepping through the saga for a maximum of 1000 iterations. In most cases, the saga will finish on its own far sooner than this, and so the cap serves to abort infinite loops. If you want to bail out at fewer iterations or allow it to run more than 1000 you can do so using the `runUntil` utility, and specify under what condition to break. Your condition function will get passed the most recently yielded value, as well as an array of all the yielded values so far. An additional helper function, `runUntilCompletion`, is the same as calling `runUntil(() => false)`, and thus will keep going no matter how many yield statements there are.
 
 ```js
 function* infiniteSaga() {
   while (true) {
-    yield 'hello'
+    yield 'hello';
   }
 }
 
@@ -238,10 +238,15 @@ test('should yield hello at least 3 times', () => {
   expect(results.every(val => val === 'hello')).toEqual(true);
 });
 
+const runUntilThreeValues = runUntil((_, values) => values.length === 3);
 test('same example, but demonstrating that runUntil is curried', () => {
-  const runUntilThreeValues = runUntil((_, values) => values.length === 3);
   const results = runUntilThreeValues(infiniteSaga);
   expect(results.length).toEqual(3);
   expect(results.every(val => val === 'hello')).toEqual(true);
-})
+});
+
+test('should lock up the computer and make me cry', () => {
+  const results = runUntilCompletion(infiniteSaga);
+  console.log('this log statement will never happen');
+});
 ```
