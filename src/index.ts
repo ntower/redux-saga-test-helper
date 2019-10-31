@@ -4,6 +4,15 @@ type Responder = <T>(iterator: Iterator<T>) => IteratorResult<T>;
 
 type ConditionMatcher = (value: any, allValues: any) => boolean;
 
+const logPrefix = '[rsth]: ';
+const colorInfo = "\x1b[37m" // white;
+// const colorWarning = "'\x1b[33m%s\x1b[0m'" // yellow
+// const colorError = "\x1b[41m"// white
+
+const logInfo = (message: string) => console.log(colorInfo, logPrefix, message);
+// const logWarning = (message: string) => console.log(colorWarning, logPrefix, message);
+// const logError = (message: string) => console.log(colorError, logPrefix, message);
+
 export interface MinimalMock {
   match: ConditionMatcher;
   execute: (iterator: Iterator<any>) => IteratorResult<any>;
@@ -37,11 +46,15 @@ function runUntil(
   if (iteratorOrGenerator === undefined) {
     return runUntil.bind(null, breakCondition);
   }
-  
+
   mocks = mocks || [];
   const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
   if (!iterator || typeof iterator.next !== 'function') {
     throw new Error('Requires an iterator or generator to work');
+  }
+
+  if (debug) {
+    logInfo('VVV Starting VVV');
   }
 
   const yieldedValues: any[] = [];
@@ -49,6 +62,9 @@ function runUntil(
   while (!result.done) {
     yieldedValues.push(result.value);
     if (breakCondition(result.value, yieldedValues)) {
+      if (debug) {
+        logInfo('Reached break condition. Stopping iteration.')
+      }
       break;
     }
 
@@ -56,12 +72,17 @@ function runUntil(
     if (matchingMock) {
       result = matchingMock.execute(iterator);
       if (!result) {
-        throw new Error('Got no iterator result. When implementing a custom .then, make sure to return the result.')
+        throw new Error('Got no iterator result. If you are implementing a custom .then, make sure to return the result.')
       }
     } else {
       result = iterator.next();
     }
   }
+
+  if (debug) {
+    logInfo('^^^ Stopping ^^^');
+  }
+
   return yieldedValues;
 }
 
