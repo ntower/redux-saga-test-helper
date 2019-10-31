@@ -23,6 +23,7 @@ export interface Mock {
   getResponsesRemaining: () => number;
   getResponseCount: () => number;
   hasResponded: () => boolean;
+  toString: () => string;
 }
 
 type BoundRunUntil = ( 
@@ -73,7 +74,7 @@ This may mean you didn't define any responders. Use .next, .throw, .return, or .
 Alternatively, it may mean you are trying to reuse mocks between tests.
 "when" mocks are one-time use. Either make new mocks for each test, or use "whenever".
 ${exhaustedMocks.map(mockIndex => 
-  `at index ${mockIndex}: ${mocks[mockIndex].toString()}` // TODO: need a toString function that's useful
+  `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
 ).join('\n')}`);
   }
 
@@ -112,7 +113,7 @@ ${exhaustedMocks.map(mockIndex =>
 `${len} mock${len === 1 ? '' : 's'} never matched any yielded value
 This may indicate that the saga is not getting fed in the mock values you expect
 ${unusedMocks.map(mockIndex => 
-  `at index ${mockIndex}: ${mocks[mockIndex].toString()}` // TODO: need a toString function that's useful
+  `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
 ).join ('\n')}`);
   }
 
@@ -149,6 +150,18 @@ function createMock(isSingleUse: boolean, valueOrMatcher: any): Mock {
   let responseCount = 0;
 
   const mock: Mock = {
+    toString: () => {
+      const name = isSingleUse ? 'when' : 'whenever';
+      let matcher;
+      if (typeof valueOrMatcher === 'function') {
+        matcher = '[custom matcher]';
+      } else if (valueOrMatcher['@@redux-saga/IO']) {
+        // TODO: i think '@@redux-saga/IO' only works with redux-saga 1.0 or later.
+        //   See about supporting earlier versions too
+        matcher = valueOrMatcher.type + ' effect';
+      }
+      return `${name}(${matcher})` + responders.map(r => r.toString()).join('');
+    },
     getResponseCount: () => responseCount,
     getResponsesRemaining: () => {
       if (isSingleUse) {
@@ -192,13 +205,19 @@ whenever(call(someFunction))
       return this;
     },
     next: function (mockValue) {
-      return this.respond(iterator => iterator.next(mockValue));
+      const responder: Responder = iterator => iterator.next(mockValue);
+      responder.toString = () => `.next(${mockValue.toString()};`;
+      return this.respond(responder);
     },
     throw: function (mockValue) {
-      return this.respond(iterator => iterator.throw!(mockValue));
+      const responder: Responder = iterator => iterator.throw!(mockValue);
+      responder.toString = () => `.throw(${mockValue.toString()})`;
+      return this.respond(responder);
     },
     return: function (mockValue) {
-      return this.respond(iterator => iterator.return!(mockValue));
+      const responder: Responder = iterator => iterator.return!(mockValue);
+      responder.toString = () => `.return(${mockValue.toString()})`;
+      return this.respond(responder);
     },
   }
 
