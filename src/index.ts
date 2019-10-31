@@ -26,10 +26,15 @@ export interface Mock {
   toString: () => string;
 }
 
+interface RunOptions {
+  debug?: boolean;
+  silent?: boolean;
+}
+
 type BoundRunUntil = ( 
   iteratorOrGenerator: Iterator<any> | GeneratorFunction, 
   mocks?: Mock[], 
-  debug?: boolean
+  options?: RunOptions
 ) => any[];
 
 export function runUntil(breakCondition: ConditionMatcher): BoundRunUntil;
@@ -37,48 +42,57 @@ export function runUntil(
   breakCondition: ConditionMatcher,
   iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
   mocks?: Mock[],
-  debug?: boolean): any[]
+  options?: RunOptions): any[]
 export function runUntil(
   breakCondition: ConditionMatcher,
   iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
   mocks: Mock[] = [],
-  debug = false
+  options = {} as Partial<RunOptions>
 ): BoundRunUntil | any[] {
   if (iteratorOrGenerator === undefined) {
     return runUntil.bind(null, breakCondition);
   }
 
+  const {
+    debug = false,
+    silent = false,
+  } = options;
+
   mocks = mocks || [];
   const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
   if (!iterator || typeof iterator.next !== 'function') {
-    logError(
-      'Requires an iterator or generator to work. Received:', 
-      iteratorOrGenerator && iteratorOrGenerator.toString && iteratorOrGenerator.toString()
-    )
+    if (!silent) {
+      logError(
+        'Requires an iterator or generator to work. Received:', 
+        iteratorOrGenerator && iteratorOrGenerator.toString && iteratorOrGenerator.toString()
+      )
+    }
     return [];
   }
 
-  if (debug) {
+  if (debug && !silent) {
     logInfo('VVV Starting VVV');
   }
 
-  const exhaustedMocks: number[] = [];
-  mocks.forEach((mock, index) => {
-    if (mock.getResponsesRemaining() <= 0) {
-      exhaustedMocks.push(index);
+  if (!silent) {
+    const exhaustedMocks: number[] = [];
+    mocks.forEach((mock, index) => {
+      if (mock.getResponsesRemaining() <= 0) {
+        exhaustedMocks.push(index);
+      }
+    })
+    const len = exhaustedMocks.length;
+    if (len > 0) {
+      logWarning(
+  `${len} mock${len === 1 ? '' : 's'} were already used up before the test started.
+  This may mean you didn't define any responders. Use .next, .throw, .return, or .respond to add one:
+    when(call(someFunction)).next("some result");
+  Alternatively, it may mean you are trying to reuse mocks between tests.
+  "when" mocks are one-time use. Either make new mocks for each test, or use "whenever".
+  ${exhaustedMocks.map(mockIndex => 
+    `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
+  ).join('\n')}`);
     }
-  })
-  let len = exhaustedMocks.length;
-  if (len > 0) {
-    logWarning(
-`${len} mock${len === 1 ? '' : 's'} were already used up before the test started.
-This may mean you didn't define any responders. Use .next, .throw, .return, or .respond to add one:
-  when(call(someFunction)).next("some result");
-Alternatively, it may mean you are trying to reuse mocks between tests.
-"when" mocks are one-time use. Either make new mocks for each test, or use "whenever".
-${exhaustedMocks.map(mockIndex => 
-  `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
-).join('\n')}`);
   }
 
   const yieldedValues: any[] = [];
@@ -86,7 +100,7 @@ ${exhaustedMocks.map(mockIndex =>
   while (!result.done) {
     yieldedValues.push(result.value);
     if (breakCondition(result.value, yieldedValues)) {
-      if (debug) {
+      if (debug && !silent) {
         logInfo('Reached break condition before the saga could return. Stopping iteration.')
       }
       break;
@@ -96,7 +110,9 @@ ${exhaustedMocks.map(mockIndex =>
     if (matchingMock) {
       result = matchingMock._execute(iterator);
       if (!result) {
-        logError('Got no iterator result. If you are implementing a custom .then, make sure to return the result.')
+        if (!silent) {
+          logError('Got no iterator result. If you are implementing a custom .then, make sure to return the result.')
+        }
         return yieldedValues;
       }
     } else {
@@ -104,23 +120,25 @@ ${exhaustedMocks.map(mockIndex =>
     }
   }
 
-  const unusedMocks: number[] = [];
-  mocks.forEach((mock, index) => {
-    if (!mock.hasResponded()) {
-      unusedMocks.push(index);
+  if (!silent) {
+    const unusedMocks: number[] = [];
+    mocks.forEach((mock, index) => {
+      if (!mock.hasResponded()) {
+        unusedMocks.push(index);
+      }
+    })
+    const len = unusedMocks.length;
+    if (len > 0) {
+      logWarning(
+  `${len} mock${len === 1 ? '' : 's'} never matched any yielded value
+  This may indicate that the saga is not getting fed in the mock values you expect
+  ${unusedMocks.map(mockIndex => 
+    `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
+  ).join ('\n')}`);
     }
-  })
-  len = unusedMocks.length;
-  if (len > 0) {
-    logWarning(
-`${len} mock${len === 1 ? '' : 's'} never matched any yielded value
-This may indicate that the saga is not getting fed in the mock values you expect
-${unusedMocks.map(mockIndex => 
-  `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
-).join ('\n')}`);
   }
 
-  if (debug) {
+  if (debug && !silent) {
     logInfo('^^^ Stopping ^^^');
   }
 
