@@ -31,13 +31,13 @@ type BoundRunUntil = (
   debug?: boolean
 ) => any[];
 
-function runUntil(breakCondition: ConditionMatcher): BoundRunUntil;
-function runUntil(  
+export function runUntil(breakCondition: ConditionMatcher): BoundRunUntil;
+export function runUntil(  
   breakCondition: ConditionMatcher,
   iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
   mocks?: Mock[],
   debug?: boolean): any[]
-function runUntil(
+export function runUntil(
   breakCondition: ConditionMatcher,
   iteratorOrGenerator?: Iterator<any> | GeneratorFunction,
   mocks: Mock[] = [],
