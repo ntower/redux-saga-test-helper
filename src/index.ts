@@ -83,7 +83,7 @@ function runUntil(
     yieldedValues.push(result.value);
     if (breakCondition(result.value, yieldedValues)) {
       if (debug) {
-        logInfo('Reached break condition. Stopping iteration.')
+        logInfo('Reached break condition before the saga could return. Stopping iteration.')
       }
       break;
     }

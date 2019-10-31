@@ -102,7 +102,7 @@ when('someOtherValue').respond(iterator => {
 
 ### Putting them together
 
-With these tools we can put together our unit tests. If there's any yield statements we need mock values for, we specify thosse mocks using `when`. Anything that doesn't need a mock (ie, where `undefined` works just fine), can be omitted. Then we pass the array of mocks into run, and get back an array of everything it yielded. Then we write our test assertions on that array, usually not caring about the order.
+With these tools we can put together our unit tests. If there's any yield statements we need mock values for, we specify those mocks using `when`. Anything that doesn't need a mock (ie, where `undefined` works just fine), can be omitted. Then we pass the array of mocks into run, and get back an array of everything it yielded. Our test assertions check the contents of that array, usually not caring about the order.
 
 ```js
 import { when, run } from 'redux-saga-test-helper';
@@ -159,6 +159,7 @@ function* sagaThatRetriesOnce() {
     try {
       yield call(axios.get, 'someUrl');
       yield put({ type: 'success' });
+      return;
     } catch (ex) {
       retryCount++;
     }
@@ -181,13 +182,28 @@ test('single failure', () => {
 Another option is to use `whenever` instead. This will repeat the requested value no matter how many times it is encountered:
 
 ```js
-test('repeated failure', () => {
+test('indefinite failure', () => {
   const mocks = [
     whenever(call(axios.get, 'someUrl')).throw('uh oh')
   ];
   const results = run(sagaThatRetriesOnce, mocks);
   expect(results).toContainEqual(put({ type: 'error' }));
 });
+
+test('fail 100 times, then succeed', () => {
+  let count = 0;
+  const mocks = [
+    whenever(call(axios.get, 'someUrl'))
+      .respond(iterator => {
+        count++;
+        if (count < 100) {
+          return iterator.throw('uh on');
+        }
+        return iterator.next('finally!');
+      });
+  ]
+  expect(results).toContainEqual(put({ type: 'error' }));
+})
 ```
 
 ### When order matters
