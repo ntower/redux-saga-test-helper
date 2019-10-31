@@ -206,7 +206,7 @@ whenever(call(someFunction))
     },
     next: function (mockValue) {
       const responder: Responder = iterator => iterator.next(mockValue);
-      responder.toString = () => `.next(${mockValue.toString()};`;
+      responder.toString = () => `.next(${mockValue.toString()})`;
       return this.respond(responder);
     },
     throw: function (mockValue) {
