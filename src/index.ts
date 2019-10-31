@@ -66,15 +66,15 @@ export function runUntil(
   })
   let len = exhaustedMocks.length;
   if (len > 0) {
-    logWarning(`${len} mock${len === 1 ? '' : 's'} were already used up before the test started`)
-    logWarning('This may mean you didn`t define any responders. Use .next, .throw, .return, or .respond to add one')
-    logWarning('  when(call(someFunction)).next("some result")');
-    logWarning('Alternatively, it may mean you are trying to reuse mocks between tests.')
-    logWarning('"when" mocks are one-time use. Either make new mocks for each test, or use "whenever".')
-    logWarning('')
-    exhaustedMocks.forEach(mockIndex => {
-      logWarning(`at index ${mockIndex}: `, mocks[mockIndex].toString()); // TODO: need a toString function that's useful
-    })
+    logWarning(
+`${len} mock${len === 1 ? '' : 's'} were already used up before the test started.
+This may mean you didn't define any responders. Use .next, .throw, .return, or .respond to add one:
+  when(call(someFunction)).next("some result");
+Alternatively, it may mean you are trying to reuse mocks between tests.
+"when" mocks are one-time use. Either make new mocks for each test, or use "whenever".
+${exhaustedMocks.map(mockIndex => 
+  `at index ${mockIndex}: ${mocks[mockIndex].toString()}` // TODO: need a toString function that's useful
+).join('\n')}`);
   }
 
   const yieldedValues: any[] = [];
@@ -108,11 +108,12 @@ export function runUntil(
   })
   len = unusedMocks.length;
   if (len > 0) {
-    logWarning(`${len} mock${len === 1 ? '' : 's'} never matched any yielded value`)
-    logWarning('This may indicate that the saga is not getting fed in the mock values you expect')
-    unusedMocks.forEach(mockIndex => {
-      logWarning(`at index ${mockIndex}: `, mocks[mockIndex].toString()); // TODO: need a toString function that's useful
-    })
+    logWarning(
+`${len} mock${len === 1 ? '' : 's'} never matched any yielded value
+This may indicate that the saga is not getting fed in the mock values you expect
+${unusedMocks.map(mockIndex => 
+  `at index ${mockIndex}: ${mocks[mockIndex].toString()}` // TODO: need a toString function that's useful
+).join ('\n')}`);
   }
 
   if (debug) {
@@ -168,24 +169,25 @@ function createMock(isSingleUse: boolean, valueOrMatcher: any): Mock {
     respond: function (callback: Responder) {
       responders.push(callback);
       if (!isSingleUse && responders.length > 1) {
-        logWarning('Chaining multiple responses onto a "whenever" mock has no effect. The first response will be used forever.')
-        logWarning('');
-        logWarning('You can chain multiple responses onto a when, with each response occuring at most once:')
-        logWarning('when(call(someFunction))');
-        logWarning('  .throw("first time fails")');
-        logWarning('  .next("second time succeeds")');
-        logWarning('  // third and later, the mock does nothing. The saga resumes with undefined');
-        logWarning('');
-        logWarning('If you need more control you can use whenever with a custom .respond:');
-        logWarning('let count = 0;');
-        logWarning('whenever(call(someFunction))');
-        logWarning('  .respond(iterator => {');
-        logWarning('    count++;');
-        logWarning('    if (count === 1) {');
-        logWarning('      return iterator.throw("first time fails");');
-        logWarning('    }');
-        logWarning('    return iterator.next("all other times succeed");');
-        logWarning('  })');
+        logWarning(
+`Chaining multiple responses onto a "whenever" mock has no effect. The first response will be used forever.
+
+You can chain multiple responses onto a when, with each response occuring at most once:
+when(call(someFunction))
+  .throw("first time fails")
+  .next("second time succeeds");
+  // third and later, the mock does nothing. The saga resumes with undefined'
+
+If you need more control you can use whenever with a custom .respond:
+let count = 0;
+whenever(call(someFunction))
+  .respond(iterator => {
+    count++;
+    if (count === 1) {
+      return iterator.throw("first time fails");
+    }
+    return iterator.next("all other times succeed");
+  })`);
       }
       return this;
     },
