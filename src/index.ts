@@ -134,7 +134,7 @@ export const run = runUntil((_, allValues) => {
 If you need to run longer, use runUntilCompletion to run forever or runUntil to specify custom logic.`
     );
   }
-  return true;
+  return false;
 });
 
 function createMock(isSingleUse: boolean, valueOrMatcher: any): Mock {
