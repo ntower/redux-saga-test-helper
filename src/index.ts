@@ -87,9 +87,7 @@ export function runUntil(
     if (len > 0) {
       logWarning(
   `${len} mock${len === 1 ? '' : 's'} were already used up before the test started.
-  This may mean you didn't define any responders. Use .next, .throw, .return, or .respond to add one:
-    when(call(someFunction)).next("some result");
-  Alternatively, it may mean you are trying to reuse mocks between tests.
+  This may mean you are trying to reuse mocks between tests.
   "when" mocks are one-time use. Either make new mocks for each test, or use "whenever".
   ${exhaustedMocks.map(mockIndex => 
     `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
@@ -133,7 +131,6 @@ export function runUntil(
     if (len > 0) {
       logWarning(
   `${len} mock${len === 1 ? '' : 's'} never matched any yielded value
-  This may indicate that the saga is not getting fed in the mock values you expect
   ${unusedMocks.map(mockIndex => 
     `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
   ).join ('\n')}`);
@@ -212,7 +209,7 @@ You can chain multiple responses onto a when, with each response occuring at mos
 when(call(someFunction))
   .throw("first time fails")
   .next("second time succeeds");
-  // third and later, the mock does nothing. The saga resumes with undefined'
+  // third and later, the mock does nothing. The saga resumes with undefined
 
 If you need more control you can use whenever with a custom .respond:
 let count = 0;
