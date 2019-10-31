@@ -51,7 +51,10 @@ export function runUntil(
   mocks = mocks || [];
   const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
   if (!iterator || typeof iterator.next !== 'function') {
-    logError('Requires an iterator or generator to work. Received:', iteratorOrGenerator.toString())
+    logError(
+      'Requires an iterator or generator to work. Received:', 
+      iteratorOrGenerator && iteratorOrGenerator.toString && iteratorOrGenerator.toString()
+    )
     return [];
   }
 
@@ -206,17 +209,17 @@ whenever(call(someFunction))
     },
     next: function (mockValue) {
       const responder: Responder = iterator => iterator.next(mockValue);
-      responder.toString = () => `.next(${mockValue.toString()})`;
+      responder.toString = () => `.next(${mockValue && mockValue.toString && mockValue.toString()})`;
       return this.respond(responder);
     },
     throw: function (mockValue) {
       const responder: Responder = iterator => iterator.throw!(mockValue);
-      responder.toString = () => `.throw(${mockValue.toString()})`;
+      responder.toString = () => `.throw(${mockValue && mockValue.toString && mockValue.toString()})`;
       return this.respond(responder);
     },
     return: function (mockValue) {
       const responder: Responder = iterator => iterator.return!(mockValue);
-      responder.toString = () => `.return(${mockValue.toString()})`;
+      responder.toString = () => `.return(${mockValue && mockValue.toString && mockValue.toString()})`;
       return this.respond(responder);
     },
   }
