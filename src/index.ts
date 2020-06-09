@@ -12,6 +12,7 @@ const colorError = "\x1b[41m" // red
 const logInfo = (...messages: string[]) => console.log(colorInfo, logPrefix, ...messages);
 const logWarning = (...messages: string[]) => console.log(colorWarning, logPrefix, ...messages);
 const logError = (...messages: string[]) => console.log(colorError, logPrefix, ...messages);
+const logVerbose = (yes: boolean | undefined, ...messages: string[]) => { if(yes) logInfo(...messages) }
 
 export interface Mock {
   _match: ConditionMatcher;
@@ -29,6 +30,7 @@ export interface Mock {
 interface RunOptions {
   debug?: boolean;
   silent?: boolean;
+  verbose?: boolean | undefined;
 }
 
 type IteratorOrGenerator = Iterator<any> | (() => Iterator<any>)
@@ -58,7 +60,8 @@ export function runUntil(
   const {
     debug = false,
     silent = false,
-  } = options;
+    verbose = false,
+  }: RunOptions = options;
 
   mocks = mocks || [];
   const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
@@ -109,6 +112,7 @@ export function runUntil(
     const matchingMock = mocks.find(m => m._match(result.value, yieldedValues));
     if (matchingMock) {
       result = matchingMock._execute(iterator);
+      logVerbose(verbose, 'mock matched ', matchingMock.toString(), result.value.toString());
       if (!result) {
         if (!silent) {
           logError('Got no iterator result. If you are implementing a custom .then, make sure to return the result.')
