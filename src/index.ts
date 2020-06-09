@@ -1,17 +1,20 @@
-import equals from 'ramda/src/equals';
+import equals from "ramda/src/equals";
 
-type Responder = <T>(iterator: Iterator<T>) => IteratorResult<T>;
+type Responder = <T>(iterator: Iterator<T, any, any>) => IteratorResult<T, any>;
 
 type ConditionMatcher = (value: any, allValues: any) => boolean;
 
-const logPrefix = '[rsth]: ';
-const colorInfo = "\x1b[37m" // white;
-const colorWarning = "'\x1b[33m%s\x1b[0m'" // yellow
-const colorError = "\x1b[41m" // red
+const logPrefix = "[rsth]: ";
+const colorInfo = "\x1b[37m"; // white;
+const colorWarning = "'\x1b[33m%s\x1b[0m'"; // yellow
+const colorError = "\x1b[41m"; // red
 
-const logInfo = (...messages: string[]) => console.log(colorInfo, logPrefix, ...messages);
-const logWarning = (...messages: string[]) => console.log(colorWarning, logPrefix, ...messages);
-const logError = (...messages: string[]) => console.log(colorError, logPrefix, ...messages);
+const logInfo = (...messages: string[]) =>
+  console.log(colorInfo, logPrefix, ...messages);
+const logWarning = (...messages: string[]) =>
+  console.log(colorWarning, logPrefix, ...messages);
+const logError = (...messages: string[]) =>
+  console.log(colorError, logPrefix, ...messages);
 
 export interface Mock {
   _match: ConditionMatcher;
@@ -31,20 +34,28 @@ interface RunOptions {
   silent?: boolean;
 }
 
-type IteratorOrGenerator = Iterator<any> | (() => Iterator<any>)
+type IteratorOrGenerator = Iterator<any> | (() => Iterator<any>);
 
-type BoundRunUntil = ( 
-  iteratorOrGenerator: IteratorOrGenerator, 
-  mocks?: Mock[], 
+type BoundRunUntil = (
+  iteratorOrGenerator: IteratorOrGenerator,
+  mocks?: Mock[],
   options?: RunOptions
 ) => any[];
 
+/**
+ * Runs a saga until a certain condition is met, creating an array of
+ * everything that it yielded.
+ *
+ * @param breakCondition a predicate that will be tested after each
+ * yield to determine whether to break.
+ */
 export function runUntil(breakCondition: ConditionMatcher): BoundRunUntil;
-export function runUntil(  
+export function runUntil(
   breakCondition: ConditionMatcher,
   iteratorOrGenerator?: IteratorOrGenerator,
   mocks?: Mock[],
-  options?: RunOptions): any[]
+  options?: RunOptions
+): any[];
 export function runUntil(
   breakCondition: ConditionMatcher,
   iteratorOrGenerator?: IteratorOrGenerator,
@@ -55,25 +66,27 @@ export function runUntil(
     return runUntil.bind(null, breakCondition);
   }
 
-  const {
-    debug = false,
-    silent = false,
-  } = options;
+  const { debug = false, silent = false } = options;
 
   mocks = mocks || [];
-  const iterator = typeof iteratorOrGenerator === 'function' ? iteratorOrGenerator() : iteratorOrGenerator;
-  if (!iterator || typeof iterator.next !== 'function') {
+  const iterator =
+    typeof iteratorOrGenerator === "function"
+      ? iteratorOrGenerator()
+      : iteratorOrGenerator;
+  if (!iterator || typeof iterator.next !== "function") {
     if (!silent) {
       logError(
-        'Requires an iterator or generator to work. Received:', 
-        iteratorOrGenerator && iteratorOrGenerator.toString && iteratorOrGenerator.toString()
-      )
+        "Requires an iterator or generator to work. Received:",
+        iteratorOrGenerator &&
+          iteratorOrGenerator.toString &&
+          iteratorOrGenerator.toString()
+      );
     }
     return [];
   }
 
   if (debug && !silent) {
-    logInfo('VVV Starting VVV');
+    logInfo("VVV Starting VVV");
   }
 
   if (!silent) {
@@ -82,16 +95,19 @@ export function runUntil(
       if (mock.getResponsesRemaining() <= 0) {
         exhaustedMocks.push(index);
       }
-    })
+    });
     const len = exhaustedMocks.length;
     if (len > 0) {
       logWarning(
-  `${len} mock${len === 1 ? '' : 's'} were already used up before the test started.
+        `${len} mock${
+          len === 1 ? "" : "s"
+        } were already used up before the test started.
   This may mean you are trying to reuse mocks between tests.
   "when" mocks are one-time use. Either make new mocks for each test, or use "whenever".
-  ${exhaustedMocks.map(mockIndex => 
-    `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
-  ).join('\n')}`);
+  ${exhaustedMocks
+    .map((mockIndex) => `at index ${mockIndex}: ${mocks[mockIndex].toString()}`)
+    .join("\n")}`
+      );
     }
   }
 
@@ -101,17 +117,23 @@ export function runUntil(
     yieldedValues.push(result.value);
     if (breakCondition(result.value, yieldedValues)) {
       if (debug && !silent) {
-        logInfo('Reached break condition before the saga could return. Stopping iteration.')
+        logInfo(
+          "Reached break condition before the saga could return. Stopping iteration."
+        );
       }
       break;
     }
 
-    const matchingMock = mocks.find(m => m._match(result.value, yieldedValues));
+    const matchingMock = mocks.find((m) =>
+      m._match(result.value, yieldedValues)
+    );
     if (matchingMock) {
       result = matchingMock._execute(iterator);
       if (!result) {
         if (!silent) {
-          logError('Got no iterator result. If you are implementing a custom .then, make sure to return the result.')
+          logError(
+            "Got no iterator result. If you are implementing a custom .then, make sure to return the result."
+          );
         }
         return yieldedValues;
       }
@@ -126,32 +148,49 @@ export function runUntil(
       if (!mock.hasResponded()) {
         unusedMocks.push(index);
       }
-    })
+    });
     const len = unusedMocks.length;
     if (len > 0) {
       logWarning(
-  `${len} mock${len === 1 ? '' : 's'} never matched any yielded value
-  ${unusedMocks.map(mockIndex => 
-    `at index ${mockIndex}: ${mocks[mockIndex].toString()}`
-  ).join ('\n')}`);
+        `${len} mock${len === 1 ? "" : "s"} never matched any yielded value
+  ${unusedMocks
+    .map((mockIndex) => `at index ${mockIndex}: ${mocks[mockIndex].toString()}`)
+    .join("\n")}`
+      );
     }
   }
 
   if (debug && !silent) {
-    logInfo('^^^ Stopping ^^^');
+    logInfo("^^^ Stopping ^^^");
   }
 
   return yieldedValues;
 }
 
+/**
+ * Runs a saga until it returns, creating an array of everything that
+ * it yielded.
+ *
+ * *Warning*: if this is run on a saga that has an infinite loop, then
+ * it will never terminate. Consider using the run function instead,
+ * or creating custom bailout logic using runUntil.
+ */
 export const runUntilCompletion = runUntil(() => false);
 
 const cutoff = 1000;
 
+/**
+ * Runs a saga until it returns, creating an array of everything that
+ * it yielded.
+ *
+ * To avoid infinite loops, this will bail out after 1000 values have
+ * been yielded. If you want different bailout logic, use runUntil
+ * instead.
+ */
 export const run = runUntil((_, allValues) => {
   if (allValues.length > cutoff) {
     throw new Error(
-`Generator did not terminate after ${cutoff} yields. You may have an infinite loop.
+      `Generator did not terminate after ${cutoff} yields. You may have an infinite loop.
 If you need to run longer, use runUntilCompletion to run forever or runUntil to specify custom logic.`
     );
   }
@@ -160,10 +199,10 @@ If you need to run longer, use runUntilCompletion to run forever or runUntil to 
 
 function createMock(isSingleUse: boolean, valueOrMatcher: any): Mock {
   let matcher: ConditionMatcher;
-  if (typeof valueOrMatcher === 'function') {
+  if (typeof valueOrMatcher === "function") {
     matcher = valueOrMatcher;
   } else {
-    matcher = equals(valueOrMatcher)
+    matcher = equals(valueOrMatcher);
   }
 
   const responders: Responder[] = [];
@@ -171,16 +210,18 @@ function createMock(isSingleUse: boolean, valueOrMatcher: any): Mock {
 
   const mock: Mock = {
     toString: () => {
-      const name = isSingleUse ? 'when' : 'whenever';
+      const name = isSingleUse ? "when" : "whenever";
       let matcher;
-      if (typeof valueOrMatcher === 'function') {
-        matcher = '[custom matcher]';
-      } else if (valueOrMatcher['@@redux-saga/IO']) {
+      if (typeof valueOrMatcher === "function") {
+        matcher = "[custom matcher]";
+      } else if (valueOrMatcher["@@redux-saga/IO"]) {
         // TODO: i think '@@redux-saga/IO' only works with redux-saga 1.0 or later.
         //   See about supporting earlier versions too
-        matcher = valueOrMatcher.type + ' effect';
+        matcher = valueOrMatcher.type + " effect";
       }
-      return `${name}(${matcher})` + responders.map(r => r.toString()).join('');
+      return (
+        `${name}(${matcher})` + responders.map((r) => r.toString()).join("")
+      );
     },
     getResponseCount: () => responseCount,
     getResponsesRemaining: () => {
@@ -190,7 +231,8 @@ function createMock(isSingleUse: boolean, valueOrMatcher: any): Mock {
       return Infinity;
     },
     hasResponded: () => responseCount > 0,
-    _match: (val, allValues) => responders.length > 0 && matcher(val, allValues),
+    _match: (val, allValues) =>
+      responders.length > 0 && matcher(val, allValues),
     _execute: (iterator) => {
       responseCount++;
       const responder = responders[0];
@@ -203,7 +245,7 @@ function createMock(isSingleUse: boolean, valueOrMatcher: any): Mock {
       responders.push(callback);
       if (!isSingleUse && responders.length > 1) {
         logWarning(
-`Chaining multiple responses onto a "whenever" mock has no effect. The first response will be used forever.
+          `Chaining multiple responses onto a "whenever" mock has no effect. The first response will be used forever.
 
 You can chain multiple responses onto a when, with each response occuring at most once:
 when(call(someFunction))
@@ -220,30 +262,66 @@ whenever(call(someFunction))
       return iterator.throw("first time fails");
     }
     return iterator.next("all other times succeed");
-  })`);
+  })`
+        );
       }
       return this;
     },
     next: function (mockValue) {
-      const responder: Responder = iterator => iterator.next(mockValue);
-      responder.toString = () => `.next(${mockValue && mockValue.toString && mockValue.toString()})`;
+      const responder: Responder = (iterator) => iterator.next(mockValue);
+      responder.toString = () =>
+        `.next(${mockValue && mockValue.toString && mockValue.toString()})`;
       return this.respond(responder);
     },
     throw: function (mockValue) {
-      const responder: Responder = iterator => iterator.throw!(mockValue);
-      responder.toString = () => `.throw(${mockValue && mockValue.toString && mockValue.toString()})`;
+      const responder: Responder = (iterator) => iterator.throw!(mockValue);
+      responder.toString = () =>
+        `.throw(${mockValue && mockValue.toString && mockValue.toString()})`;
       return this.respond(responder);
     },
     return: function (mockValue) {
-      const responder: Responder = iterator => iterator.return!(mockValue);
-      responder.toString = () => `.return(${mockValue && mockValue.toString && mockValue.toString()})`;
+      const responder: Responder = (iterator) => iterator.return!(mockValue);
+      responder.toString = () =>
+        `.return(${mockValue && mockValue.toString && mockValue.toString()})`;
       return this.respond(responder);
     },
-  }
+  };
 
   return mock;
 }
 
+/**
+ * Waits for a certain effect to be yielded by a saga, and then substitutes
+ * in a mock value as the result of the yield. This will only match the first
+ * time the effect is seen. To match an unlimited number of times, use whenever
+ *
+ * Usage example:
+ * ```javascript
+ * const mocks = [
+ *   when(select(getUser)).next({ name: 'mockUser' }),
+ *   when(call(axios.get, 'someUrl')).throw("uh oh")
+ * ];
+ *
+ * const results = run(someSaga, mocks);
+ * ```
+ */
 export const when = (valueOrMatcher: any) => createMock(true, valueOrMatcher);
 
-export const whenever = (valueOrMatcher: any) => createMock(false, valueOrMatcher);
+/**
+ * Waits for a certain effect to be yielded by a saga, and then substitutes
+ * in a mock value as the result of the yield. If the effect is yielded
+ * repeatedly, then this will match it each time. If you only want to match
+ * once, use when instead of whenever
+ *
+ * Usage example:
+ * ```javascript
+ * const mocks = [
+ *   whenever(select(getUser)).next({ name: 'mockUser' }),
+ *   whenever(call(axios.get, 'someUrl')).throw("uh oh")
+ * ];
+ *
+ * const results = run(someSaga, mocks);
+ * ```
+ */
+export const whenever = (valueOrMatcher: any) =>
+  createMock(false, valueOrMatcher);
